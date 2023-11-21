@@ -2,7 +2,11 @@ package com.ctg.playwright_demo.tests;
 
 import com.microsoft.playwright.*;
 
+import java.io.File;
+import java.io.IOException;
 import java.lang.reflect.Method;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -64,10 +68,28 @@ public class Logintests {
     void tearDown(TestInfo testInfo) {
         // Take a screenshot with the test method name and timestamp
         String testMethodName = testInfo.getTestMethod().map(Method::getName).orElse("unknown");
+        String dirPath = "target" + File.separator + testMethodName;
+        Path directory = createDirectoryForScreenshots(dirPath);
         String timeStamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss"));
 
-        page.screenshot(new Page.ScreenshotOptions().setPath(Paths.get(testMethodName + "_" + timeStamp + ".png")));
+        // Define the screenshot file path
+        Path screenshotPath = directory.resolve(testMethodName + "_" + timeStamp + ".png");
+
+        page.screenshot(new Page.ScreenshotOptions().setPath(screenshotPath));
 
         page.close();
+    }
+
+    private Path createDirectoryForScreenshots(String dirPath) {
+        Path directory = Paths.get(dirPath);
+        if (!Files.exists(directory)) {
+            try {
+                Files.createDirectories(directory);
+            } catch (IOException e) {
+                e.printStackTrace();
+                // Handle exceptions or logging here
+            }
+        }
+        return directory;
     }
 }
