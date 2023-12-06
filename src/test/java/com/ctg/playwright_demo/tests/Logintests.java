@@ -1,64 +1,23 @@
 package com.ctg.playwright_demo.tests;
 
 import com.ctg.playwright_demo.tests.pages.LoginPage;
-import com.microsoft.playwright.*;
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
-import java.io.File;
-import java.io.IOException;
-import java.lang.reflect.Method;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
-
 import static org.junit.jupiter.api.Assertions.*;
 
-public class Logintests {
+public class Logintests extends BaseTest {
 
-    private Page page;
     private LoginPage loginPage;
 
-    // Shared between all tests in this class.
-    static Playwright playwright;
-    static Browser browser;
-
-    // New instance for each test method.
-    BrowserContext context;
-
-    @BeforeAll
-    static void launchBrowser() {
-        playwright = Playwright.create();
-        browser = playwright.chromium()
-                .launch(new BrowserType.LaunchOptions().setSlowMo(1000).setHeadless(false));
-    }
-
-    @AfterAll
-    static void closeBrowser() {
-        playwright.close();
-    }
-
     @BeforeEach
-    void createContextAndPage() {
-        context = browser.newContext();
-        page = context.newPage();
+    @Override
+    public void createContextAndPage() {
+
+        super.createContextAndPage();
         loginPage = new LoginPage(page);
         loginPage.navigate();
-    }
-
-    @AfterEach
-    void tearDown(TestInfo testInfo) {
-        String testMethodName = testInfo.getTestMethod().map(Method::getName).orElse("unknown");
-        String dirPath = "target" + File.separator + testMethodName;
-        Path directory = createDirectoryForScreenshots(dirPath);
-        String timeStamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss"));
-        Path screenshotPath = directory.resolve(testMethodName + "_" + timeStamp + ".png");
-        page.screenshot(new Page.ScreenshotOptions().setPath(screenshotPath));
-        page.close();
-        context.close();
     }
 
     @Test
@@ -102,17 +61,5 @@ public class Logintests {
         assertTrue(loginPage.isUsernameFieldVisible(), "Username field is not visible");
         assertTrue(loginPage.isPasswordFieldVisible(), "Password field is not visible");
         assertTrue(loginPage.isLoginButtonVisible(), "Login button is not visible");
-    }
-
-    private Path createDirectoryForScreenshots(String dirPath) {
-        Path directory = Paths.get(dirPath);
-        if (!Files.exists(directory)) {
-            try {
-                Files.createDirectories(directory);
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
-        return directory;
     }
 }

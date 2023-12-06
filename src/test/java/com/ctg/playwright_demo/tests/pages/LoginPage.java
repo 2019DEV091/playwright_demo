@@ -6,7 +6,7 @@ import org.slf4j.LoggerFactory;
 
 public class LoginPage {
 
-     private static final Logger logger = LoggerFactory.getLogger(LoginPage.class);
+    private static final Logger logger = LoggerFactory.getLogger(LoginPage.class);
     private static final String URL = "https://www.saucedemo.com/v1/";
     private static final String USERNAME_SELECTOR = "#user-name";
     private static final String PASSWORD_SELECTOR = "#password";
@@ -68,6 +68,5 @@ public class LoginPage {
         logger.info("Checking if login button is visible");
         return page.isVisible(LOGIN_BUTTON_SELECTOR);
     }
-
 
 }
