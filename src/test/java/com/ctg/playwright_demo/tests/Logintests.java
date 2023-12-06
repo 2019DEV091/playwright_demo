@@ -1,6 +1,10 @@
 package com.ctg.playwright_demo.tests;
 
+import com.ctg.playwright_demo.tests.pages.LoginPage;
 import com.microsoft.playwright.*;
+import org.junit.jupiter.api.*;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
 import java.io.File;
 import java.io.IOException;
@@ -11,73 +15,93 @@ import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 
-import org.junit.jupiter.api.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 public class Logintests {
 
-    Page page;
+    private Page page;
+    private LoginPage loginPage;
+
+    // Shared between all tests in this class.
+    static Playwright playwright;
+    static Browser browser;
+
+    // New instance for each test method.
+    BrowserContext context;
+
+    @BeforeAll
+    static void launchBrowser() {
+        playwright = Playwright.create();
+        browser = playwright.chromium()
+                .launch(new BrowserType.LaunchOptions().setSlowMo(1000).setHeadless(false));
+    }
+
+    @AfterAll
+    static void closeBrowser() {
+        playwright.close();
+    }
 
     @BeforeEach
-    void setUp() {
-        Playwright playwright = Playwright.create();
-        Browser browser = playwright.chromium()
-                .launch(new BrowserType.LaunchOptions().setSlowMo(1000).setHeadless(false));
-        BrowserContext context = browser.newContext();
+    void createContextAndPage() {
+        context = browser.newContext();
         page = context.newPage();
-        page.navigate("https://www.saucedemo.com/v1/"); // Replace with the URL where your HTML page is hosted
-    }
-
-    @Test
-    public void testLoginWithValidCredentials() {
-        page.fill("#user-name", "standard_user");
-        page.fill("#password", "secret_sauce");
-        page.click("#login-button");
-        // Add assertions here to verify successful login
-        // Assertion for URL
-        Assertions.assertEquals("https://www.saucedemo.com/v1/inventory.html", page.url(),
-                "URL does not match the expected inventory page URL");
-
-        // Additional assertions based on the inventory page HTML
-        Assertions.assertTrue(page.isVisible("#inventory_container"), "Inventory container is not visible");
-        Assertions.assertTrue(page.isVisible(".product_label"), "Product label is not visible");
-        Assertions.assertTrue(page.isVisible(".inventory_item"), "Inventory items are not visible");
-        Assertions.assertTrue(page.isVisible(".shopping_cart_link"), "Shopping cart link is not visible");
-        Assertions.assertTrue(page.isVisible(".footer"), "Footer is not visible");
-
-        // Assertions for specific product existence (e.g., Sauce Labs Backpack)
-        Assertions.assertTrue(page.isVisible("text=Sauce Labs Backpack"), "Sauce Labs Backpack is not visible");
-
-    }
-
-    @Test
-    public void testLoginWithInvalidCredentials() {
-        page.fill("#user-name", "invalid_user");
-        page.fill("#password", "invalid_password");
-        page.click("#login-button");
-        // Add assertions here to verify login failure
-    }
-
-    @Test
-    public void testUILoginElements() {
-        Assertions.assertTrue(page.isVisible("#user-name"), "Username field is not visible");
-        Assertions.assertTrue(page.isVisible("#password"), "Password field is not visible");
-        Assertions.assertTrue(page.isVisible("#login-button"), "Login button is not visible");
+        loginPage = new LoginPage(page);
+        loginPage.navigate();
     }
 
     @AfterEach
     void tearDown(TestInfo testInfo) {
-        // Take a screenshot with the test method name and timestamp
         String testMethodName = testInfo.getTestMethod().map(Method::getName).orElse("unknown");
         String dirPath = "target" + File.separator + testMethodName;
         Path directory = createDirectoryForScreenshots(dirPath);
         String timeStamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss"));
-
-        // Define the screenshot file path
         Path screenshotPath = directory.resolve(testMethodName + "_" + timeStamp + ".png");
-
         page.screenshot(new Page.ScreenshotOptions().setPath(screenshotPath));
-
         page.close();
+        context.close();
+    }
+
+    @Test
+    public void testLoginWithValidCredentials() {
+        loginPage.login("standard_user", "secret_sauce");
+
+        assertEquals("https://www.saucedemo.com/v1/inventory.html", page.url(),
+                "URL does not match the expected inventory page URL");
+        assertTrue(page.isVisible("#inventory_container"), "Inventory container is not visible");
+        assertTrue(page.isVisible(".product_label"), "Product label is not visible");
+        assertTrue(page.isVisible(".inventory_item"), "Inventory items are not visible");
+        assertTrue(page.isVisible(".shopping_cart_link"), "Shopping cart link is not visible");
+        assertTrue(page.isVisible(".footer"), "Footer is not visible");
+        assertTrue(page.isVisible("text=Sauce Labs Backpack"), "Sauce Labs Backpack is not visible");
+    }
+
+    @ParameterizedTest
+    @CsvSource({ "user,secret_sauce", "standard_user,psst", "fjklqfjq,jfkldqjfqdl" })
+    public void testLoginWithInvalidCredentials(String userName, String password) {
+        loginPage.login(userName, password);
+
+        assertTrue(loginPage.isErrorMessageVisible(), "Error message should be visible after failed login");
+        assertEquals("Epic sadface: Username and password do not match any user in this service",
+                loginPage.getErrorMessage(), "Error message text should match");
+        assertTrue(loginPage.isOnLoginPage(), "URL should remain the login page after failed login attempt");
+    }
+
+    @Test
+    public void testLoginWithLockedOutUser() {
+        loginPage.login("locked_out_user", "secret_sauce");
+
+        assertTrue(loginPage.isErrorMessageVisible(), "Error message should be visible for locked-out user");
+        assertEquals("Epic sadface: Sorry, this user has been locked out.",
+                loginPage.getErrorMessage(), "Error message text should match for locked-out user");
+        assertTrue(loginPage.isOnLoginPage(),
+                "URL should remain the login page after failed login attempt with locked-out user");
+    }
+
+    @Test
+    public void testUILoginElements() {
+        assertTrue(loginPage.isUsernameFieldVisible(), "Username field is not visible");
+        assertTrue(loginPage.isPasswordFieldVisible(), "Password field is not visible");
+        assertTrue(loginPage.isLoginButtonVisible(), "Login button is not visible");
     }
 
     private Path createDirectoryForScreenshots(String dirPath) {
@@ -87,7 +111,6 @@ public class Logintests {
                 Files.createDirectories(directory);
             } catch (IOException e) {
                 e.printStackTrace();
-                // Handle exceptions or logging here
             }
         }
         return directory;
